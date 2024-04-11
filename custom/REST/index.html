@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Control Panel</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            text-align: center;
+        }
+        button {
+            display: inline-block;
+            width: 50px;
+            height: 50px;
+            margin: 5px;
+            border-radius: 50%;
+            border: 2px solid #333;
+            background-color: #eee;
+            font-size: 16px;
+            cursor: pointer;
+        }
+        button:focus {
+            outline: none;
+        }
+    </style>
+</head>
+<body>
+    <h1>Control Panel</h1>
+    <button onclick="sendInstruction('auto')">Auto</button>
+    <button onclick="sendInstruction('forward')">▲</button><br>
+    <button onclick="sendInstruction('left')">◀</button>
+    <button onclick="sendInstruction('stop')">■</button>
+    <button onclick="sendInstruction('right')">▶</button><br>
+    <button onclick="sendInstruction('backward')">▼</button>
+    <button onclick="sendInstruction('straight')">▲</button>
+    
+    <script>
+        function sendInstruction(instruction) {
+            fetch('/api/data', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ instruction })
+            })
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error('Network response was not ok');
+                }
+                return response.json();
+            })
+            .then(data => {
+                console.log('Instruction sent:', data);
+            })
+            .catch(error => {
+                console.error('Error sending instruction:', error);
+            });
+        }
+    </script>
+</body>
+</html>

@@ -1,0 +1,40 @@
+Mar 19 10:43:58 raspberrypi sudo[34965]:     self.px = Picarx()
+Mar 19 10:43:58 raspberrypi sudo[34965]:   File "/usr/local/lib/python3.9/dist-packages/picarx-2.0.2-py3.9.egg/picarx/picarx.py", line 48, in __init__
+Mar 19 10:43:58 raspberrypi sudo[34965]:     self.config_flie = fileDB(config, 774, os.getlogin())
+Mar 19 10:43:58 raspberrypi sudo[34965]: OSError: [Errno 6] No such device or address
+Mar 19 10:43:58 raspberrypi sudo[34965]: Connected to MQTT broker
+Mar 19 10:43:58 raspberrypi sudo[34965]: Subscribed to /1234/Robot001/cmd
+Mar 19 10:43:59 raspberrypi sudo[34964]: pam_unix(sudo:session): session closed for user root
+Mar 19 10:43:59 raspberrypi systemd[1]: picar.service: Main process exited, code=exited, status=1/FAILURE
+Mar 19 10:43:59 raspberrypi systemd[1]: picar.service: Failed with result 'exit-code'.
+Mar 19 10:43:59 raspberrypi systemd[1]: picar.service: Consumed 2.019s CPU time.
+Mar 19 10:43:59 raspberrypi systemd[1]: picar.service: Scheduled restart job, restart counter is at 1236.
+Mar 19 10:43:59 raspberrypi systemd[1]: Stopped Sensor hub script.
+Mar 19 10:43:59 raspberrypi systemd[1]: picar.service: Consumed 2.019s CPU time.
+Mar 19 10:43:59 raspberrypi systemd[1]: Started Sensor hub script.
+Mar 19 10:43:59 raspberrypi sudo[34994]:     root : PWD=/home/admin/picar-x/custom ; USER=root ; COMMAND=/usr/bin/python /home/admin/picar-x/custom/main.py
+Mar 19 10:43:59 raspberrypi sudo[34994]: pam_unix(sudo:session): session opened for user root(uid=0) by (uid=0)
+Mar 19 10:44:00 raspberrypi sudo[34995]: INFO: Created TensorFlow Lite XNNPACK delegate for CPU.
+Mar 19 10:44:00 raspberrypi sudo[34995]: vilib 0.2.0 launching ...
+Mar 19 10:44:00 raspberrypi sudo[34995]: picamera2 0.3.12
+Mar 19 10:44:01 raspberrypi sudo[34995]: Traceback (most recent call last):
+Mar 19 10:44:01 raspberrypi sudo[34995]:   File "/home/admin/picar-x/custom/main.py", line 168, in <module>
+Mar 19 10:44:01 raspberrypi sudo[34995]:     app =App()
+Mar 19 10:44:01 raspberrypi sudo[34995]:   File "/home/admin/picar-x/custom/main.py", line 25, in __init__
+Mar 19 10:44:01 raspberrypi sudo[34995]:     self.px = Picarx()
+Mar 19 10:44:01 raspberrypi sudo[34995]:   File "/usr/local/lib/python3.9/dist-packages/picarx-2.0.2-py3.9.egg/picarx/picarx.py", line 48, in __init__
+Mar 19 10:44:01 raspberrypi sudo[34995]:     self.config_flie = fileDB(config, 774, os.getlogin())
+Mar 19 10:44:01 raspberrypi sudo[34995]: OSError: [Errno 6] No such device or address
+Mar 19 10:44:01 raspberrypi sudo[34995]: Connected to MQTT broker
+Mar 19 10:44:01 raspberrypi sudo[34995]: Subscribed to /1234/Robot001/cmd
+Mar 19 10:44:01 raspberrypi sudo[34994]: pam_unix(sudo:session): session closed for user root
+Mar 19 10:44:01 raspberrypi systemd[1]: picar.service: Main process exited, code=exited, status=1/FAILURE
+Mar 19 10:44:01 raspberrypi systemd[1]: picar.service: Failed with result 'exit-code'.
+Mar 19 10:44:01 raspberrypi systemd[1]: picar.service: Consumed 2.008s CPU time.
+Mar 19 10:44:01 raspberrypi systemd[1]: picar.service: Scheduled restart job, restart counter is at 1237.
+Mar 19 10:44:01 raspberrypi systemd[1]: Stopped Sensor hub script.
+Mar 19 10:44:01 raspberrypi systemd[1]: picar.service: Consumed 2.008s CPU time.
+Mar 19 10:44:01 raspberrypi systemd[1]: Started Sensor hub script.
+Mar 19 10:44:01 raspberrypi sudo[35021]:     root : PWD=/home/admin/picar-x/custom ; USER=root ; COMMAND=/usr/bin/python /home/admin/picar-x/custom/main.py
+Mar 19 10:44:01 raspberrypi sudo[35021]: pam_unix(sudo:session): session opened for user root(uid=0) by (uid=0)
+admin@raspberrypi:~ $ sudo nano /etc/systemd/system/picar.service 

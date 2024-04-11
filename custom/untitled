@@ -1,0 +1,25 @@
+x: x-coordinate
+y: y-coordinate
+Status: Moving/Stationary
+Detected: is_person_detected
+Mode: Auto/Manual
+Camera_FoV NIL/CameraNumber
+
+command
+
+x
+y
+
+
+
+Report location
+WebUI Navigation
+- Video stream
+- Control option to turn motor on for X seconds
+	- More arrows to move in a direction for 1s vs continuous
+- Estimate how far it moves in 1 second
+Check when Car enters camera FoV
+- Define coordinates, report when within xx or yy distance of coordinate
+Move to coordinates (KIV)
+
+
