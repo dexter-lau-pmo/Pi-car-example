@@ -12,7 +12,7 @@ class Camera(object):
         
     def start_record(self):
         vname = strftime("%Y-%m-%d-%H.%M.%S", localtime())
-        Vilib.rec_video_set["name"] = vname
+        Vilib.rec_video_set["name"] = vname #Where to store video
         # start record
         Vilib.rec_video_run()
         Vilib.rec_video_start()

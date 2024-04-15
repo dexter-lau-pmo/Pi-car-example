@@ -3,7 +3,7 @@ import json
 
 class MQTTClient:
     def __init__(self):
-        self.connect()
+        #self.connect() #called in main.py
         self.x1 = 0.0
         self.x2 = 1.0
         self.y1 = 1.0
@@ -11,13 +11,19 @@ class MQTTClient:
         self.drive_towards_camera = False
         self.stop_car = False
         self.auto_car = False
+        #mqtt.Client = mqtt.Client() #use agnostic version?
+        self.client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION1)
+        self.connected_flag=False # check if is connected
         
     def on_publish(self, client, userdata, mid):
         print(f"Message published: {mid}")
 
     def publish(self, json_object):
-        print("Message published")
-        self.client.publish(self.topic, json.dumps(json_object))
+        if (self.connected_flag):
+                print("Message published")
+                self.client.publish(self.topic, json.dumps(json_object))
+        else:
+                print("Currently disconnected, cannot publish")
         
     def on_connect(self, client, userdata, flags, rc):
         if rc == 0:
@@ -25,11 +31,15 @@ class MQTTClient:
             #added subscribe
             self.client.subscribe("/1234/Robot001/cmd")
             print("Subscribed to /1234/Robot001/cmd")
+            self.connected_flag=True
 
         else: 
             print("Failed to connect to MQTT broker")
+            self.connected_flag=False
             
-
+    def on_disconnect(self, client, userdata, rc):
+        print("disconnecting reason  "  +str(rc))
+        self.connected_flag=False # check if is connected
         
             
     def on_message(self, client, userdata, msg):
@@ -59,16 +69,22 @@ class MQTTClient:
         broker = "35.240.151.148"
         port = 1883
         self.topic = "/1234/Robot001/attrs"
-        self.client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION1)
-
+        
+        
         self.client.on_publish = self.on_publish
         self.client.on_connect = self.on_connect
-
+        self.client.on_disconnect = self.on_disconnect
         
         #added subscribe
         self.client.on_message = self.on_message
         
-        self.client.connect(broker, port, 60)
+        #Attempt to connect if connection does not exist
+        if self.connected_flag == False:
+                try:
+                    self.client.connect(broker, port, 60) #Try to connect
+                except:
+                    print("Connection failed") #Handle if failed
+
         self.client.loop_start()
 
 

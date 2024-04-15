@@ -27,7 +27,7 @@ class Motor(object):
     
     def stop(self):
         self.is_moving = False
-        self.px.forward(0)
+        self.px.forward(0) #Set speed to zero
     
     def get_status(self):
         return self.is_moving

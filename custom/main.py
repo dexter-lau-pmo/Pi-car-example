@@ -13,8 +13,8 @@ from datetime import datetime
 
 JSON_FILE_PATH = '/home/admin/picar-x/custom/REST/data.json'
 POWER = 50
-SAFE_DISTANCE = 30   # > 40 safe
-DANGER_DISTANCE = 20 # > 20 && < 40 turn around, 
+SAFE_DISTANCE = 20   # > 40 safe
+DANGER_DISTANCE = 10 # > 20 && < 40 turn around, 
                     # < 20 backward
 
 class App(object):
@@ -25,7 +25,7 @@ class App(object):
         self.px = Picarx()
         self.motor = Motor()
         self.auto = AutoPilot(self.px, self.motor)
-        self.auto.start()
+        self.auto.start() #Start auto pilot handling thread
         self.is_avoiding_collision = False
         self.alert_x1 = 0.0
         self.alert_x2 = 1.0
@@ -34,26 +34,37 @@ class App(object):
     
     # TODO: clear json file value after reading it
     def run(self):
-        self.mqtt_client.connect()
-        last_msg_time = time.time()
+        self.mqtt_client.connect() #disable for my sanity when wifi is bad
+        last_msg_time = time.time() - 40 #To start first message immediately
         self.mqtt_client.stop_car == True
         
         #while True: #Motor testing only
-            #self.camera_nod()
-            #self.camera_shake()
+         #   self.camera_nod()
+          #  self.camera_shake()
+            
         self.px.set_cam_tilt_angle(25)
         
+        
         while True:
+            n=0
             try:
                 with open(JSON_FILE_PATH, 'r') as file:
                     fcntl.flock(file, fcntl.LOCK_SH)
                     data = json.load(file)
                     fcntl.flock(file, fcntl.LOCK_UN)
-            except json.decoder.JSONDecodeError as json_err:
-                continue
+            except json.decoder.JSONDecodeError as json_err: #If JSON file gets corrupted, infinite loop might occur if not handled properly
+                if n<20:
+                    continue
+                else:
+                     n=0
+                     print("\n JSON Error, default to stop \n")
+                     self.change_mode_stop()
+                     
             insn = data['instruction'] #get current mode (manual/auto) from the JSON file loaded earlier
-            self.update_bot_coordinates() #calculate the bot position
-            self.update_alert_zone()#if you got a message that updates the bots alert zone, update it
+            
+            #Bluetooth localisation # commented off to remove feature & reduce lag
+            #self.update_bot_coordinates() #calculate the bot position
+            #self.update_alert_zone()#if you got a message that updates the bots alert zone, update it
 
             #Process special statuses
             if self.mqtt_client.drive_towards_camera == True: #If you get a message "names" from the Camera Drive forward and change to auto mode. This simulates finding the camera
@@ -65,47 +76,63 @@ class App(object):
                 print("changing to stop mode")
                 self.change_mode_stop()
                 self.mqtt_client.stop_car = False
+                insn == "stop"
                 
             elif self.mqtt_client.auto_car == True: # if you get a message tochange car mode to auto, do so
                 print("changing to auto mode")
                 self.change_mode_auto()
                 self.mqtt_client.auto_car = False 
-
-
+                insn == "auto"
+            
+            #Check for Cam zone
+            if self.get_cam_zone() != "NULL":
+                if insn == "auto":
+                    self.send_mqtt_update("auto")
+                else:
+                    self.send_mqtt_update("manual")
+            
             
             if insn == "auto": #If current mode is auto , we make the robot follow people arond
                 time_elapsed = time.time() - last_msg_time
-                if time_elapsed >3:
+                if time_elapsed >40:
                     last_msg_time = time.time()
                     self.send_mqtt_update("Auto")
                     print("Auto")
                     
                 #Collision avoidance
                 distance = round(self.px.ultrasonic.read(), 2)
-                if distance >= SAFE_DISTANCE or distance < 0: #sensor gives -1 when it fails to receive ultrasonic feedback
+                if distance >= SAFE_DISTANCE or distance <0 : #sensor gives -1 when it fails to receive ultrasonic feedback
                     if self.is_avoiding_collision:
                         self.motor.stop()
                         self.is_avoiding_collision = False
+                        
                     self.auto.event.set() # unpauses auto thread
-                elif distance >= DANGER_DISTANCE:
+                    
+                    if distance <0:
+                        print("Ultrasound error" , distance)
+                    
+                elif distance >= DANGER_DISTANCE: #within danger distance
+                    print("Turning to avoid collision")
+                    print(distance)
                     self.auto.event.clear() # pauses the auto thread
                     self.is_avoiding_collision = True
                     self.motor.right()
                     self.motor.forward()
                     sleep(1)
-                elif distance >= 0: 
-                    self.auto.event.clear()
+                else: 
+                    self.auto.event.clear() # pauses the auto thread
                     self.is_avoiding_collision = True
                     print("HIT")
-                    self.motor.left()
+                    print(distance)
+                    self.motor.straight()
                     self.motor.backward()
                     sleep(1)
                                        
-            else:
+            else: #If mode is manual, we check a JSON file for instructions on how to move
                 
                 time_elapsed = time.time() - last_msg_time
                 
-                if time_elapsed >3:
+                if time_elapsed >40:
                     last_msg_time = time.time()
                     self.send_mqtt_update("Manual")
             
@@ -131,20 +158,22 @@ class App(object):
                     self.motor.straight()
                     self.px.set_cam_tilt_angle(25)
                     
+                    
     def send_mqtt_update(self, mode):
-        print(self.x_coordinate,self.y_coordinate)
+
         current_timestamp = datetime.now().isoformat() # add timestamp param
-        print("\n", current_timestamp)
-        
+        #print("\n Current time:", current_timestamp)        
         message = {
-            "x" : self.x_coordinate,
-            "y" : self.y_coordinate,
+            #Comment out x and y coordinates because not reporting coordinates
+            #"x" : self.x_coordinate,
+            #"y" : self.y_coordinate,
             "status" : self.motor.get_status(),
             "mode" : mode,
             "camera-zone": self.get_cam_zone(),
             "timestamp": current_timestamp
         }
         self.mqtt_client.publish(message)
+        print(message)
 
     def update_bot_coordinates(self):
         pos_estimator = PositionEstimator()
@@ -158,15 +187,18 @@ class App(object):
         self.alert_y1 = self.mqtt_client.y1
         self.alert_y2 = self.mqtt_client.y2
         
+        
+    #Returns camera if in zone, otherwise, returns "NULL"
     def get_cam_zone(self):
         if self.check_color_is_white():# An alternate way to trigger the camera zone is for robot to run over white stuff
             print("ITS WHITE")
             return "urn:ngsi-ld:Camera:Camera001"
             
         #arbitrary dummy zone for camera where cam field is x is 1 to 10, y is 1 to 10
-        if self.x_coordinate < self.alert_x2 and self.y_coordinate < self.alert_y2 and self.x_coordinate > self.alert_x1 and self.y_coordinate > self.alert_y1:
-            return "urn:ngsi-ld:Camera:Camera001"
-            
+        #Commented out this portion as not longer checking for coordinates
+        #if self.x_coordinate < self.alert_x2 and self.y_coordinate < self.alert_y2 and self.x_coordinate > self.alert_x1 and self.y_coordinate > self.alert_y1:
+            #return "urn:ngsi-ld:Camera:Camera001"
+
         else:
             return "NULL"
     
@@ -190,13 +222,16 @@ class App(object):
     def write_file(self, filename, fileinput):
         while True:
             print("File write attempt")
-            with open(filename, "w") as file:
-                fcntl.flock(file, fcntl.LOCK_SH)
-                file.write(fileinput)
-                fcntl.flock(file, fcntl.LOCK_UN)
-                print("File write success")
-                break
-                            
+            try:
+                with open(filename, "w") as file:
+                    fcntl.flock(file, fcntl.LOCK_EX)
+                    file.write(fileinput)
+                    fcntl.flock(file, fcntl.LOCK_UN)
+                    print("File write success")
+                    break
+            except Exception as e:
+                print("File Error occurred:", str(e))
+                                        
     def change_mode_auto(self):
         json_data = {"instruction":"auto"}
         json_object = json.dumps(json_data)
@@ -210,8 +245,9 @@ class App(object):
     def check_color_is_white(self):
         current_grayscale_value = self.px.get_grayscale_data()
         return all(list(map(lambda x: x > 120, current_grayscale_value)))
-            
-    def camera_nod(self):
+    
+    #Hardware testing functions
+    def camera_nod(self): 
         print("Nod")
         self.px.set_cam_tilt_angle(25)
         sleep(2)
@@ -225,6 +261,12 @@ class App(object):
         self.px.set_cam_pan_angle(-25)
         sleep(2)
         self.px.set_cam_pan_angle(0)
+        sleep(3)
+        self.motor.left()
+        sleep(2)
+        self.motor.right()
+        sleep(2)
+        self.motor.straight()
         
 if __name__ == '__main__':
     try:
