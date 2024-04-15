@@ -56,8 +56,8 @@ class Follower(object):
         self.px.set_dir_servo_angle(self.x_angle / 2)
 
         if coverage_ratio <= 0.39 or self.coordinate_x >= 640*(3/4) or self.coordinate_x <= 640*(1/4):
-            #print("Moving to follow hooman")
+            print("Moving to follow hooman")
             self.motor.forward()
         else:
-            #print("Hooman sufficiently close")
+            print("Hooman sufficiently close")
             self.motor.stop()

@@ -203,21 +203,26 @@ class App(object):
             return "NULL"
     
     def drive_towards_camera(self):
+        self.mqtt_client.drive_towards_camera = False
         last_msg_time = time.time()
         timelapse = time.time() - last_msg_time
         self.motor.straight()
         self.motor.forward()
-        while timelapse < 4.5:
+        
+        while timelapse < 4 :
             timelapse = time.time() - last_msg_time
             if(self.get_cam_zone() == "urn:ngsi-ld:Camera:Camera001"):
                 print("Entered Cam Zone")
                 break
             print("drive towards camera")
+            sleep(0.01) #Try if sleep helps
+            
+        print("Stopped driving to camera") 
         self.motor.stop()
         json_data = {"instruction":"auto"}
         json_object = json.dumps(json_data)
         print("Attempt to update JSON")
-        self.write_file(JSON_FILE_PATH,json_object)
+        self.write_file(JSON_FILE_PATH, json_object)
             
     def write_file(self, filename, fileinput):
         while True:
@@ -235,12 +240,12 @@ class App(object):
     def change_mode_auto(self):
         json_data = {"instruction":"auto"}
         json_object = json.dumps(json_data)
-        self.write_file(JSON_FILE_PATH,json_object)
+        self.write_file(JSON_FILE_PATH,str(json_object) )
 
     def change_mode_stop(self):
         json_data = {"instruction":"stop"}
         json_object = json.dumps(json_data)
-        self.write_file(JSON_FILE_PATH,json_object)
+        self.write_file(JSON_FILE_PATH,str(json_object) )
         
     def check_color_is_white(self):
         current_grayscale_value = self.px.get_grayscale_data()
