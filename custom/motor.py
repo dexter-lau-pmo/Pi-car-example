@@ -1,20 +1,24 @@
-from picarx import Picarx
+import picarx
+from  picarx import Picarx
 from time import sleep
 
 class Motor(object):
 
-    def __init__(self):
-        self.px = Picarx()
+    def __init__(self, px_instance):
+        #self.px = Picarx()
+        self.px = px_instance
         self.is_moving = False 
         
     # TODO timers for all actions:
     def forward(self, speed=1):
         self.is_moving = True
         self.px.forward(speed)
+        print("Motor Forward")
     
     def backward(self, speed=1):
         self.is_moving = True
         self.px.backward(speed)
+        print("Motor backward")
         
     def right(self):
         self.px.set_dir_servo_angle(35)

@@ -1,4 +1,4 @@
-from picarx import Picarx
+#from picarx import Picarx
 from time import sleep
 from vilib import Vilib
 from motor import Motor
@@ -36,7 +36,7 @@ class Follower(object):
         self.y_angle = self.clamp_number(self.y_angle,0,80)
         #print("Y_ANGLE: ", self.y_angle)
         self.px.set_cam_tilt_angle(self.y_angle)
-        sleep(0.05)
+        sleep(0.1)
         
     def stalk_person(self, joints): #controls motor
         # proximity check

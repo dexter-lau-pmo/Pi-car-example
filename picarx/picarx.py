@@ -45,8 +45,10 @@ class Picarx(object):
                 ):
 
         # --------- config_flie ---------
-        self.config_flie = fileDB(config, 774, os.getlogin())
-
+        username = os.environ['USER'] # added
+        #self.config_flie = fileDB(config, 774, os.getlogin())
+        self.config_flie = fileDB(config, 774, username)
+        
         # --------- servos init ---------
         self.cam_pan = Servo(servo_pins[0])
         self.cam_tilt = Servo(servo_pins[1])   

@@ -23,7 +23,8 @@ class App(object):
         self.y_coordinate = 0
         self.mqtt_client = MQTTClient()
         self.px = Picarx()
-        self.motor = Motor()
+        #self.motor = Motor()
+        self.motor = Motor(self.px)
         self.auto = AutoPilot(self.px, self.motor)
         self.auto.start() #Start auto pilot handling thread
         self.is_avoiding_collision = False
@@ -41,6 +42,7 @@ class App(object):
         #while True: #Motor testing only
          #   self.camera_nod()
           #  self.camera_shake()
+            
             
         self.px.set_cam_tilt_angle(25)
         
@@ -83,14 +85,14 @@ class App(object):
                 self.change_mode_auto()
                 self.mqtt_client.auto_car = False 
                 insn == "auto"
-            
+            '''
             #Check for Cam zone
             if self.get_cam_zone() != "NULL":
                 if insn == "auto":
                     self.send_mqtt_update("auto")
                 else:
                     self.send_mqtt_update("manual")
-            
+            '''
             
             if insn == "auto": #If current mode is auto , we make the robot follow people arond
                 time_elapsed = time.time() - last_msg_time
@@ -99,18 +101,19 @@ class App(object):
                     self.send_mqtt_update("Auto")
                     print("Auto")
                     
+               
                 #Collision avoidance
                 distance = round(self.px.ultrasonic.read(), 2)
                 if distance >= SAFE_DISTANCE or distance <0 : #sensor gives -1 when it fails to receive ultrasonic feedback
                     if self.is_avoiding_collision:
-                        self.motor.stop()
+                        #self.motor.stop()
                         self.is_avoiding_collision = False
                         
                     self.auto.event.set() # unpauses auto thread
                     
                     if distance <0:
                         print("Ultrasound error" , distance)
-                    
+                """    
                 elif distance >= DANGER_DISTANCE: #within danger distance
                     print("Turning to avoid collision")
                     print(distance)
@@ -127,11 +130,11 @@ class App(object):
                     self.motor.straight()
                     self.motor.backward()
                     sleep(1)
-                                       
+                """                    
             else: #If mode is manual, we check a JSON file for instructions on how to move
                 
                 time_elapsed = time.time() - last_msg_time
-                
+                self.auto.event.clear()
                 if time_elapsed >40:
                     last_msg_time = time.time()
                     self.send_mqtt_update("Manual")
@@ -272,11 +275,24 @@ class App(object):
         self.motor.right()
         sleep(2)
         self.motor.straight()
+        sleep(2)
+        print("Attempt forward")
+        self.px.forward(1)
+        sleep(2)
+        print("Stop")
+        self.px.forward(0)
+        sleep(1)
+        print("Attempt backward")
+        self.px.backward(1)
+        sleep(2)
+        print("Stop")
+        self.px.forward(0)
+        sleep(1)
         
 if __name__ == '__main__':
     try:
         app =App()
         app.run()
     except KeyboardInterrupt:
-        Motor().stop()
+        app.motor.stop()
         pass
