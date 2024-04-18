@@ -10,6 +10,10 @@ import fcntl
 import json
 from datetime import datetime
 
+#For auto
+from follower import Follower
+from patrol import Patroller
+from camera import Camera
 
 JSON_FILE_PATH = '/home/admin/picar-x/custom/REST/data.json'
 POWER = 50
@@ -25,13 +29,21 @@ class App(object):
         self.px = Picarx()
         #self.motor = Motor()
         self.motor = Motor(self.px)
-        self.auto = AutoPilot(self.px, self.motor)
-        self.auto.start() #Start auto pilot handling thread
+        #self.auto = AutoPilot(self.px, self.motor)
+        #self.auto.start() #Start auto pilot handling thread
         self.is_avoiding_collision = False
         self.alert_x1 = 0.0
         self.alert_x2 = 1.0
         self.alert_y1 = 0.0
         self.alert_y2 = 1.0    
+        self.auto_flag = True
+        
+        #imported from auto thread:
+        self.rec_flag = False
+        #self.record_buffer = Timer() 
+        #self.patroller = Patroller(px, motor) #unused
+        self.follower = Follower(self.px, self.motor)
+        self.cam = Camera()
     
     # TODO: clear json file value after reading it
     def run(self):
@@ -85,14 +97,14 @@ class App(object):
                 self.change_mode_auto()
                 self.mqtt_client.auto_car = False 
                 insn == "auto"
-            '''
+            
             #Check for Cam zone
             if self.get_cam_zone() != "NULL":
                 if insn == "auto":
                     self.send_mqtt_update("auto")
                 else:
                     self.send_mqtt_update("manual")
-            '''
+            
             
             if insn == "auto": #If current mode is auto , we make the robot follow people arond
                 time_elapsed = time.time() - last_msg_time
@@ -106,57 +118,63 @@ class App(object):
                 distance = round(self.px.ultrasonic.read(), 2)
                 if distance >= SAFE_DISTANCE or distance <0 : #sensor gives -1 when it fails to receive ultrasonic feedback
                     if self.is_avoiding_collision:
-                        #self.motor.stop()
+                        self.motor.stop()
                         self.is_avoiding_collision = False
                         
-                    self.auto.event.set() # unpauses auto thread
+                    #self.auto.event.set() # unpauses auto thread
                     
                     if distance <0:
                         print("Ultrasound error" , distance)
-                """    
+                    
                 elif distance >= DANGER_DISTANCE: #within danger distance
                     print("Turning to avoid collision")
                     print(distance)
-                    self.auto.event.clear() # pauses the auto thread
+                    #self.auto.event.clear() # pauses the auto thread
                     self.is_avoiding_collision = True
                     self.motor.right()
                     self.motor.forward()
                     sleep(1)
                 else: 
-                    self.auto.event.clear() # pauses the auto thread
+                    #self.auto.event.clear() # pauses the auto thread
                     self.is_avoiding_collision = True
                     print("HIT")
                     print(distance)
                     self.motor.straight()
                     self.motor.backward()
                     sleep(1)
-                """                    
+                    
+                #Implement auto mode in parallel to tthe other things
+                joints = Vilib.detect_obj_parameter['body_joints']
+                if joints and (len(joints) >= 12) and joints[11] and joints[12]: #11 is left shoulder point, 12 is right shoulder point
+                    #print("SHOULDERS DETECTED")
+                    self.follower.follow(joints)
+                                    
             else: #If mode is manual, we check a JSON file for instructions on how to move
                 
                 time_elapsed = time.time() - last_msg_time
-                self.auto.event.clear()
+                #self.auto.event.clear()
                 if time_elapsed >40:
                     last_msg_time = time.time()
                     self.send_mqtt_update("Manual")
             
                 if insn == "forward":
-                    self.auto.event.clear()
+                    #self.auto.event.clear()
                     self.motor.forward()
                 elif insn == "left":
-                    self.auto.event.clear()
+                    #self.auto.event.clear()
                     self.motor.left()
                 elif insn == "right":
                     print("RIGHT")
-                    self.auto.event.clear()
+                    #self.auto.event.clear()
                     self.px.set_dir_servo_angle(35)
                 elif insn == "backward":
-                    self.auto.event.clear()
+                    #self.auto.event.clear()
                     self.motor.backward()
                 elif insn == "straight":
-                    self.auto.event.clear()
+                    #self.auto.event.clear()
                     self.motor.straight()
                 elif insn == "stop":
-                    self.auto.event.clear()
+                    #self.auto.event.clear()
                     self.motor.stop()
                     self.motor.straight()
                     self.px.set_cam_tilt_angle(25)
