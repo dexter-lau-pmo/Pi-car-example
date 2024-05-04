@@ -10,12 +10,12 @@ class Motor(object):
         self.is_moving = False 
         
     # TODO timers for all actions:
-    def forward(self, speed=1):
+    def forward(self, speed=0.7):
         self.is_moving = True
         self.px.forward(speed)
         print("Motor Forward")
     
-    def backward(self, speed=1):
+    def backward(self, speed=0.7):
         self.is_moving = True
         self.px.backward(speed)
         print("Motor backward")

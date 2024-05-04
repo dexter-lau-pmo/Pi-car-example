@@ -9,6 +9,7 @@ from time import sleep
 import fcntl
 import json
 from datetime import datetime
+from ftp_uploader import FTPUploader
 
 #For auto
 from follower import Follower
@@ -17,7 +18,7 @@ from camera import Camera
 
 JSON_FILE_PATH = '/home/admin/picar-x/custom/REST/data.json'
 POWER = 50
-SAFE_DISTANCE = 20   # > 40 safe
+SAFE_DISTANCE = 13   # > 40 safe
 DANGER_DISTANCE = 10 # > 20 && < 40 turn around, 
                     # < 20 backward
 
@@ -44,20 +45,23 @@ class App(object):
         #self.patroller = Patroller(px, motor) #unused
         self.follower = Follower(self.px, self.motor)
         self.cam = Camera()
+        self.ftp_uploader = FTPUploader()
     
     # TODO: clear json file value after reading it
     def run(self):
         self.mqtt_client.connect() #disable for my sanity when wifi is bad
         last_msg_time = time.time() - 40 #To start first message immediately
         self.mqtt_client.stop_car == True
-        
-        #while True: #Motor testing only
+        time_elapsed_since_human_sighted = time.time()
+        last_joints_time = time.time()
+        #while True: #Motor testing function only
          #   self.camera_nod()
           #  self.camera_shake()
             
             
         self.px.set_cam_tilt_angle(25)
         
+        self.take_and_upload_photo()
         
         while True:
             n=0
@@ -120,22 +124,11 @@ class App(object):
                     if self.is_avoiding_collision:
                         self.motor.stop()
                         self.is_avoiding_collision = False
-                        
-                    #self.auto.event.set() # unpauses auto thread
-                    
+                                            
                     if distance <0:
                         print("Ultrasound error" , distance)
-                    
-                elif distance >= DANGER_DISTANCE: #within danger distance
-                    print("Turning to avoid collision")
-                    print(distance)
-                    #self.auto.event.clear() # pauses the auto thread
-                    self.is_avoiding_collision = True
-                    self.motor.right()
-                    self.motor.forward()
-                    sleep(1)
+                
                 else: 
-                    #self.auto.event.clear() # pauses the auto thread
                     self.is_avoiding_collision = True
                     print("HIT")
                     print(distance)
@@ -144,11 +137,20 @@ class App(object):
                     sleep(1)
                     
                 #Implement auto mode in parallel to tthe other things
+                
                 joints = Vilib.detect_obj_parameter['body_joints']
-                if joints and (len(joints) >= 12) and joints[11] and joints[12]: #11 is left shoulder point, 12 is right shoulder point
-                    #print("SHOULDERS DETECTED")
+                #if joints and (len(joints) >= 12) and joints[11] and joints[12]: #11 is left shoulder point, 12 is right shoulder point #Original code follows shoulders
+                if joints and (len(joints) >= 8): #New code to follow as long as sufficient joints are detected
                     self.follower.follow(joints)
-                                    
+                    last_joints_time = time.time()
+                    if time_elapsed_since_human_sighted > 5: #Take a picture if its a new person
+                        self.take_and_upload_photo()
+                
+                #If haven't seen hooman in the last second, stop the motor
+                time_elapsed_since_human_sighted = time.time() - last_joints_time
+                if time_elapsed_since_human_sighted > 0.5:
+                    self.motor.stop()
+                
             else: #If mode is manual, we check a JSON file for instructions on how to move
                 
                 time_elapsed = time.time() - last_msg_time
@@ -158,23 +160,17 @@ class App(object):
                     self.send_mqtt_update("Manual")
             
                 if insn == "forward":
-                    #self.auto.event.clear()
                     self.motor.forward()
                 elif insn == "left":
-                    #self.auto.event.clear()
                     self.motor.left()
                 elif insn == "right":
                     print("RIGHT")
-                    #self.auto.event.clear()
                     self.px.set_dir_servo_angle(35)
                 elif insn == "backward":
-                    #self.auto.event.clear()
                     self.motor.backward()
                 elif insn == "straight":
-                    #self.auto.event.clear()
                     self.motor.straight()
                 elif insn == "stop":
-                    #self.auto.event.clear()
                     self.motor.stop()
                     self.motor.straight()
                     self.px.set_cam_tilt_angle(25)
@@ -223,6 +219,21 @@ class App(object):
         else:
             return "NULL"
     
+    def take_and_upload_photo(self):
+        
+        photo_name = "Test" #jpg file type
+        # Get the current date and time
+        timestamp = datetime.now()
+        formatted_timestamp = timestamp.strftime("%Y-%m-%d %H:%M:%S")
+        print("Formatted Timestamp:", formatted_timestamp)
+        photo_name = "snapshot_" + formatted_timestamp
+        
+        print("Take photo")
+        file_loc = self.cam.take_photo(photo_name) #Photo location
+        gcp_file_loc = "photos/" + photo_name
+        self.ftp_uploader.upload_file(file_loc , gcp_file_loc)
+        
+    
     def drive_towards_camera(self):
         self.mqtt_client.drive_towards_camera = False
         last_msg_time = time.time()
@@ -236,7 +247,7 @@ class App(object):
                 print("Entered Cam Zone")
                 break
             print("drive towards camera")
-            sleep(0.01) #Try if sleep helps
+            sleep(0.1) #Try if sleep helps
             
         print("Stopped driving to camera") 
         self.motor.stop()
@@ -272,7 +283,7 @@ class App(object):
         current_grayscale_value = self.px.get_grayscale_data()
         return all(list(map(lambda x: x > 120, current_grayscale_value)))
     
-    #Hardware testing functions
+    #Hardware testing functions - Only to be used to check if motors are working fine
     def camera_nod(self): 
         print("Nod")
         self.px.set_cam_tilt_angle(25)
@@ -280,6 +291,7 @@ class App(object):
         self.px.set_cam_tilt_angle(-25)
         sleep(2)
         self.px.set_cam_tilt_angle(0)
+    #Hardware testing functions
     def camera_shake(self):
         print("Shake")
         self.px.set_cam_pan_angle(25)

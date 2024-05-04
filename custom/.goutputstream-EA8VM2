@@ -106,7 +106,7 @@ class Follower(object):
         human_area = (max_x - min_x) * (max_y - min_y)
         coverage_ratio = human_area / (640 * 480)
         
-        if num_valid_joints == 2 and joints[11] and joints[12]: #If we see from back only, there is only one dimension
+        if (max_y - min_y)<20: #If we see from back only, there is only one dimension
                 coverage_ratio = (max_x - min_x)/640 * 0.7 # add an offset, as shoulders can be further but still follow
         
         print("Coverage" , coverage_ratio)

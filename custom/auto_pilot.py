@@ -8,6 +8,9 @@ from patrol import Patroller
 from camera import Camera
 import threading
 
+
+#This class is deprecated! It is no longer used as tthreading does not work well with the motor due to race conditions messing things up when 2 threads interact with the motor at the same time!
+
 class AutoPilot(threading.Thread):
     
     def __init__(self, px, motor):

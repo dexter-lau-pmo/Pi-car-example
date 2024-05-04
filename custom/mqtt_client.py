@@ -4,6 +4,7 @@ import json
 class MQTTClient:
     def __init__(self):
         #self.connect() #called in main.py
+        self.broker_ip = "35.240.151.148"
         self.x1 = 0.0
         self.x2 = 1.0
         self.y1 = 1.0
@@ -11,9 +12,10 @@ class MQTTClient:
         self.drive_towards_camera = False
         self.stop_car = False
         self.auto_car = False
-        #mqtt.Client = mqtt.Client() #use agnostic version?
         self.client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION1)
         self.connected_flag=False # check if is connected
+        self.servo_dir = None
+        self.motor_dir = None
         
     def on_publish(self, client, userdata, mid):
         print(f"Message published: {mid}")
@@ -50,11 +52,13 @@ class MQTTClient:
                 if key == "x1":
                         self.x1 = float(message_data["x1"])
                 if key == "y1":
-                        self.y1 = float(message_data["y1"])
+                        self.y1 = float(message_data["y1"]) #Use for servo control?
+                        
                 if key=="x2":
                         self.x2 = float(message_data["x2"])
                 if key =="y2":
-                        self.y2 = float(message_data["y2"])
+                        self.y2 = float(message_data["y2"]) #Use for motor control?
+                        
                 if key=="names":
                         self.drive_towards_camera = True
                         print("\n\\n\n\n\n\n\nAlert Received, start driving plz\n\n\n\n\n\n")  
@@ -66,10 +70,9 @@ class MQTTClient:
                         print("\nCmd Received, auto mode for car\n") 
                                         
     def connect(self):
-        broker = "35.240.151.148"
+        broker = self.broker_ip
         port = 1883
         self.topic = "/1234/Robot001/attrs"
-        
         
         self.client.on_publish = self.on_publish
         self.client.on_connect = self.on_connect
