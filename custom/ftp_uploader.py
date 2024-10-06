@@ -3,7 +3,7 @@ from google.cloud import storage
 import json
 
 class FTPUploader:
-    def upload_file(self, local_file_path, file_name, isVideo=True):
+    def upload_file(self, local_file_path, file_name, isVideo=False):
         credential_json_path = "/home/admin/GCP_credentials.json"
         
         # Create credentials from the service account JSON file

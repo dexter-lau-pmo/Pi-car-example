@@ -16,7 +16,12 @@ from follower import Follower
 from patrol import Patroller
 from camera import Camera
 
+#For sound
+from robot_hat import Music
+
+
 JSON_FILE_PATH = '/home/admin/picar-x/custom/REST/data.json'
+sound_file_path = "/home/admin/picar-x/custom/sounds/car-double-horn.wav"
 POWER = 50
 SAFE_DISTANCE = 13   # > 40 safe
 DANGER_DISTANCE = 10 # > 20 && < 40 turn around, 
@@ -46,6 +51,10 @@ class App(object):
         self.follower = Follower(self.px, self.motor)
         self.cam = Camera()
         self.ftp_uploader = FTPUploader()
+        
+        #For sound
+        self.music = Music()
+        self.music.sound_play('../sounds/car-double-horn.wav')
     
     # TODO: clear json file value after reading it
     def run(self):
@@ -54,6 +63,7 @@ class App(object):
         self.mqtt_client.stop_car == True
         time_elapsed_since_human_sighted = time.time()
         last_joints_time = time.time()
+        last_photo_time = time.time()
         #while True: #Motor testing function only
          #   self.camera_nod()
           #  self.camera_shake()
@@ -89,18 +99,29 @@ class App(object):
                 print("\n\n\nDriving to camera\n\n\n\n")
                 self.drive_towards_camera()
                 self.mqtt_client.drive_towards_camera = False
+                self.mqtt_client.cctv_camera_direction = "None"
             
             elif self.mqtt_client.stop_car == True: #If you get a message to change car mode to stop, do so
                 print("changing to stop mode")
                 self.change_mode_stop()
                 self.mqtt_client.stop_car = False
-                insn == "stop"
+                insn = "stop"
                 
             elif self.mqtt_client.auto_car == True: # if you get a message tochange car mode to auto, do so
                 print("changing to auto mode")
                 self.change_mode_auto()
                 self.mqtt_client.auto_car = False 
-                insn == "auto"
+                insn = "auto"
+            
+            elif self.mqtt_client.override_auto_mode == True:
+                print("Mqtt command passed  to over ride")
+                self.mqtt_client.override_auto_mode = False 
+                
+                if insn != "mqtt": #Dont do shit if already in mqtt mode
+                    print("changing override auto mode\n change to mqtt")
+                    self.change_mode_mqtt()
+                    insn = "mqtt"
+                #print("Insn ", insn)
             
             #Check for Cam zone
             if self.get_cam_zone() != "NULL":
@@ -136,29 +157,39 @@ class App(object):
                     self.motor.backward()
                     sleep(1)
                     
-                #Implement auto mode in parallel to tthe other things
+                #Implement auto mode in parallel to the other things
                 
                 joints = Vilib.detect_obj_parameter['body_joints']
                 #if joints and (len(joints) >= 12) and joints[11] and joints[12]: #11 is left shoulder point, 12 is right shoulder point #Original code follows shoulders
                 if joints and (len(joints) >= 8): #New code to follow as long as sufficient joints are detected
                     self.follower.follow(joints)
                     last_joints_time = time.time()
-                    if time_elapsed_since_human_sighted > 5: #Take a picture if its a new person
+                        
+                    if  time.time() - last_photo_time > 5: #Take a picture if its a new person or every 5 seconds of following
                         self.take_and_upload_photo()
+                        last_photo_time = time.time() 
                 
                 #If haven't seen hooman in the last second, stop the motor
                 time_elapsed_since_human_sighted = time.time() - last_joints_time
+                
                 if time_elapsed_since_human_sighted > 0.5:
                     self.motor.stop()
+                    
+            
                 
-            else: #If mode is manual, we check a JSON file for instructions on how to move
+            else: #If mode is manual (Not auto), we check a JSON file for instructions on how to move
                 
                 time_elapsed = time.time() - last_msg_time
                 #self.auto.event.clear()
                 if time_elapsed >40:
                     last_msg_time = time.time()
                     self.send_mqtt_update("Manual")
-            
+                    print("insn is : ", insn)
+                
+                #Logic -> If Got MQTT command, we remove the auto mode
+                
+                
+                #Control motor via JSON file
                 if insn == "forward":
                     self.motor.forward()
                 elif insn == "left":
@@ -171,11 +202,73 @@ class App(object):
                 elif insn == "straight":
                     self.motor.straight()
                 elif insn == "stop":
+                    print("Reset angles")
                     self.motor.stop()
                     self.motor.straight()
-                    self.px.set_cam_tilt_angle(25)
+                    self.px.set_cam_tilt_angle(25) #look up
+                    self.px.set_cam_pan_angle(0) # Straight
+                
+                #control camera servo
+                if insn == "mqtt":
+                    if self.mqtt_client.servo_dir == "right":
+                        self.px.set_cam_pan_angle(25)
+                        self.mqtt_client.servo_dir = None
+                        print("Cam right")
+                    elif self.mqtt_client.servo_dir == "left":
+                        self.px.set_cam_pan_angle(-25)
+                        self.mqtt_client.servo_dir = None
+                        print("Cam left")
+                    elif self.mqtt_client.servo_dir == "down":
+                        self.px.set_cam_tilt_angle(0)
+                        self.mqtt_client.servo_dir = None
+                        print("Cam down")
+                    elif self.mqtt_client.servo_dir == "up":
+                        self.px.set_cam_tilt_angle(30)     
+                        self.mqtt_client.servo_dir = None
+                        print("Cam up")
+                    elif self.mqtt_client.servo_dir == "reset":
+                        self.px.set_cam_tilt_angle(25) #look up
+                        self.px.set_cam_pan_angle(0) # Straight
+                        print("Cam reset")
+                        self.mqtt_client.servo_dir = None
                     
-                    
+                    #Control motor
+                    if self.mqtt_client.motor_dir == "forward" :
+                        print("Forward")
+                        self.motor.forward()
+                        self.mqtt_client.motor_dir = None
+                    elif self.mqtt_client.motor_dir == "left":
+                        print("left")
+                        self.motor.left()
+                        self.mqtt_client.motor_dir = None
+                    elif self.mqtt_client.motor_dir == "right" :
+                        print("RIGHT")
+                        self.px.set_dir_servo_angle(35)
+                        self.mqtt_client.motor_dir = None
+                    elif self.mqtt_client.motor_dir == "backward" :
+                        print("Backward")
+                        self.motor.backward()
+                        self.mqtt_client.motor_dir = None
+                    elif self.mqtt_client.motor_dir == "straight":
+                        self.motor.straight()
+                        self.mqtt_client.motor_dir = None
+                    elif self.mqtt_client.motor_dir == "stop":
+                        print("Reset angles")
+                        self.motor.stop()
+                        self.motor.straight()
+                        self.px.set_cam_tilt_angle(25) #look up
+                        self.px.set_cam_pan_angle(0) # Straight
+                        self.mqtt_client.motor_dir = None
+                        
+                    # manual snapshot
+                    if self.mqtt_client.motor_dir == "snapshot" or self.mqtt_client.servo_dir == "snapshot":
+                        #self.motor.stop()
+                        self.take_and_upload_photo()
+                        self.mqtt_client.motor_dir = None
+                        self.mqtt_client.servo_dir = None
+                        print("Photo taken")
+                                                    
+                                            
     def send_mqtt_update(self, mode):
 
         current_timestamp = datetime.now().isoformat() # add timestamp param
@@ -231,18 +324,52 @@ class App(object):
         print("Take photo")
         file_loc = self.cam.take_photo(photo_name) #Photo location
         gcp_file_loc = "photos/" + photo_name
-        self.ftp_uploader.upload_file(file_loc , gcp_file_loc)
+        gcp_url = self.ftp_uploader.upload_file(file_loc , gcp_file_loc, False)
+        print("File destination " , gcp_url)
         
-    
+        #MQTT path sent
+        current_timestamp = datetime.now().isoformat() # add timestamp param
+        #print("\n Current time:", current_timestamp)        
+        message = {
+            "imagepath" : gcp_url,
+            "timestamp": current_timestamp
+        }
+        self.mqtt_client.publish(message)
+        print(message)
+        
+    #Drive towards camera for 4 seconds
     def drive_towards_camera(self):
+        
+        #Play sound
+        print("Play alert")
+        self.music.sound_play('../sounds/car-double-horn.wav')
+        
         self.mqtt_client.drive_towards_camera = False
-        last_msg_time = time.time()
+        last_msg_time = time.time() #Get start time
         timelapse = time.time() - last_msg_time
+        
+        
+        #Turn right for 1 second
+        if self.mqtt_client.cctv_camera_direction == "right":
+            self.motor.right()
+        elif self.mqtt_client.cctv_camera_direction == "left":
+            self.motor.left()
+        else:
+            print(f"Invalid direction: {self.mqtt_client.cctv_camera_direction}")
+        
+        self.motor.forward()
+        while timelapse < 1.3 :
+            timelapse = time.time() - last_msg_time #Check time elapsed
+            print("Turning towards camera direction: ", self.mqtt_client.cctv_camera_direction)
+            sleep(0.1) #Try if sleep helps
+
+        
+        #Set motor straight and drive forward
         self.motor.straight()
         self.motor.forward()
         
-        while timelapse < 4 :
-            timelapse = time.time() - last_msg_time
+        while timelapse < 5.5 :
+            timelapse = time.time() - last_msg_time #Check time elapsed
             if(self.get_cam_zone() == "urn:ngsi-ld:Camera:Camera001"):
                 print("Entered Cam Zone")
                 break
@@ -278,6 +405,12 @@ class App(object):
         json_data = {"instruction":"stop"}
         json_object = json.dumps(json_data)
         self.write_file(JSON_FILE_PATH,str(json_object) )
+
+    def change_mode_mqtt(self):
+        json_data = {"instruction":"mqtt"}
+        json_object = json.dumps(json_data)
+        self.write_file(JSON_FILE_PATH,str(json_object) )
+
         
     def check_color_is_white(self):
         current_grayscale_value = self.px.get_grayscale_data()
